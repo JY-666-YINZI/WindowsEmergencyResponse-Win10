@@ -1,4 +1,5 @@
-# Windows--Win10
+#WindowsEmergencyResponse-Win10
+
 __        ___           _                  
 \ \      / (_)_ __   __| | _____      _____ 
  \ \ /\ / /| | '_ \ / _` |/ _ \ \ /\ / / __|
@@ -15,126 +16,93 @@ __        ___           _
  | |___| | | | | |  __| |  | |_| |\ V |  __/\__ \ 
  |_____|_| |_| |_|\___|_|   \__|_| \_/ \___||___/
 
-https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white
-https://img.shields.io/badge/Category-Emergency%2520Response-red
-https://img.shields.io/badge/Language-%25E4%25B8%25AD%25E6%2596%2587-green
-https://img.shields.io/badge/Status-Active-brightgreen
+![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white)
+![Category](https://img.shields.io/badge/Category-Emergency%20Response-red)
+![Language](https://img.shields.io/badge/Language-%E4%B8%AD%E6%96%87-green)
+![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
-一份基于实战的 Windows 安全应急响应笔记，系统梳理了从入侵检测到攻击者溯源的全流程，帮助蓝队分析师快速定位攻击者 IP、webshell、隐藏账户等关键信息。
+> 一份基于实战的 Windows 安全应急响应笔记，系统梳理了从入侵检测到攻击者溯源的全流程，帮助蓝队分析师快速定位攻击者 IP、webshell、隐藏账户等关键信息。
 
-📌 核心问题清单
+## 📌 核心问题清单
+
 一次完整的 Windows 应急响应通常需要回答以下问题：
 
-攻击者的 IP 地址（通常存在两个：扫描/爆破 IP 与远程登录 IP）
+1. **攻击者的 IP 地址**（通常存在两个：扫描/爆破 IP 与远程登录 IP）
+2. **攻击者留下的 webshell 文件名**
+3. **webshell 的连接密码**
+4. **攻击者的 QQ 号**（如果安装了腾讯相关软件）
+5. **恶意服务器地址**（C2、Frp 等隧道代理服务器）
+6. **攻击者是如何入侵的**（常见选择题考点）
+7. **攻击者创建的隐藏用户名**
 
-攻击者留下的 webshell 文件名
+## 🔍 排查流程与方法
 
-webshell 的连接密码
+### 1. 三要素确定
+- **时间**（When）
+- **路径/位置**（Where）
+- **角色/IP**（Character / IP）
 
-攻击者的 QQ 号（如果安装了腾讯相关软件）
+### 2. Web 日志分析 → 获取第一个攻击 IP
+- 定位中间件日志（如 phpStudy 的 `access.log`）
+- 重点关注高频、非人工行为的请求（扫描、爆破），关联 IP 即为攻击者
+- 工具推荐：蓝队工具箱中的 Windows 日志分析工具，必要时手工分析
 
-恶意服务器地址（C2、Frp 等隧道代理服务器）
+### 3. 远程登录 IP 提取 → 获取第二个攻击 IP
+- 打开 `eventvwr.msc`，在 **安全** 日志中过滤登录事件（Event ID: 4624）
+- 查找来自公网或可疑内网段（如 `192.168.x.x`）的成功登录记录
+- 常见的远程工具痕迹：向日葵、ToDesk、RDP、隧道代理
 
-攻击者是如何入侵的（常见选择题考点）
+### 4. Webshell 定位与密码提取
+- 使用 **D盾** 等查杀工具扫描网站目录
+- 分析可疑脚本，提取连接密码（如蚁剑、冰蝎流量特征）
+- 可选：上传至 **微步在线** 等平台进行沙箱验证
 
-攻击者创建的隐藏用户名
+### 5. 查找攻击者 QQ 号
+- 进入 `C:\Users\<用户名>\Documents\Tencent Files`（或安装目录）
+- QQ 号码通常直接作为文件夹名
 
-🔍 排查流程与方法
-1. 三要素确定
-时间（When）
+### 6. 定位恶意服务器地址
+- 检查隧道工具配置文件（frp、nps、ngrok 等）中的 `server_addr` 与端口
+- **事后排查**：利用 Everything 按时间排序查找最近修改的可疑配置
+- **实时检查**：`tasklist` 查看进程，定位异常进程路径
 
-路径/位置（Where）
+### 7. 入侵方式还原
+- 检查 Web 应用是否开启文件上传（upload）功能 – 若有，查看 upload 日志
+- 若 Web 日志无上传记录，检查其他服务：
+  - **FTP**：查看 FTP 日志，寻找爆破与文件上传痕迹
+  - **数据库外联**：检查 `my.ini` 是否允许外部连接
+  - 实际案例：FTP 爆破成功后上传 webshell（如 `system` 文件）
 
-角色/IP（Character / IP）
+### 8. 隐藏用户排查
+- **事件查看器**：搜索 Event ID `4720`（创建用户）、`4732`（加入本地组）、`4728`（加入全局组）
+- **注册表**：检查 `HKEY_LOCAL_MACHINE\SAM\SAM\Domains\Account\Users\Names`（需提权）
+- **技巧**：根据时间缩小范围，或搜索内网 IP 片段快速定位
 
-2. Web 日志分析 → 获取第一个攻击 IP
-定位中间件日志（如 phpStudy 的 access.log）
+## 📋 常用 Windows 安全事件 ID 速查
 
-重点关注高频、非人工行为的请求（扫描、爆破），关联 IP 即为攻击者
+| 旧版 ID (XP/2003) | 新版 ID (Vista+) | 描述 | 日志名称 |
+|-------------------|------------------|------|----------|
+| -                 | 4622             | 用户注销成功 | Security |
+| 528               | 4624             | 成功登录 | Security |
+| 529               | 4625             | 失败登录 | Security |
+| 680               | 4776             | 成功/失败的账户认证 | Security |
+| 624               | 4720             | 创建用户 | Security |
+| 636               | 4732             | 添加用户到启用安全性的本地组中 | Security |
+| 632               | 4728             | 添加用户到启用安全性的全局组中 | Security |
+| 2934              | 7030             | 服务创建错误 | System |
+| 2944              | 7040             | IPSec 服务启动类型变更 | System |
+| 2949              | 7045             | 服务创建 | System |
 
-工具推荐：蓝队工具箱中的 Windows 日志分析工具，必要时手工分析
+## 🛠️ 推荐工具与平台
 
-3. 远程登录 IP 提取 → 获取第二个攻击 IP
-打开 eventvwr.msc，在 安全 日志中过滤登录事件（Event ID: 4624）
+- **日志分析**：蓝队 Windows 日志分析工具、Event Log Explorer
+- **Webshell 扫描**：D盾、河马查杀
+- **进程与文件搜索**：Everything、Process Explorer
+- **在线沙箱**：微步在线、VirusTotal
+- **隧道代理识别**：frp 配置文件检查、网络连接状态查看（`netstat -ano`）
 
-查找来自公网或可疑内网段（如 192.168.x.x）的成功登录记录
+## ⚠️ 免责声明
 
-常见的远程工具痕迹：向日葵、ToDesk、RDP、隧道代理
-
-4. Webshell 定位与密码提取
-使用 D盾 等查杀工具扫描网站目录
-
-分析可疑脚本，提取连接密码（如蚁剑、冰蝎流量特征）
-
-可选：上传至 微步在线 等平台进行沙箱验证
-
-5. 查找攻击者 QQ 号
-进入 C:\Users\<用户名>\Documents\Tencent Files（或安装目录）
-
-QQ 号码通常直接作为文件夹名
-
-6. 定位恶意服务器地址
-检查隧道工具配置文件（frp、nps、ngrok 等）中的 server_addr 与端口
-
-事后排查：利用 Everything 按时间排序查找最近修改的可疑配置
-
-实时检查：tasklist 查看进程，定位异常进程路径
-
-7. 入侵方式还原
-检查 Web 应用是否开启文件上传（upload）功能 – 若有，查看 upload 日志
-
-若 Web 日志无上传记录，检查其他服务：
-
-FTP：查看 FTP 日志，寻找爆破与文件上传痕迹
-
-数据库外联：检查 my.ini 是否允许外部连接
-
-实际案例：FTP 爆破成功后上传 webshell（如 system 文件）
-
-8. 隐藏用户排查
-事件查看器：搜索 Event ID 4720（创建用户）、4732（加入本地组）、4728（加入全局组）
-
-注册表：检查 HKEY_LOCAL_MACHINE\SAM\SAM\Domains\Account\Users\Names（需提权）
-
-技巧：根据时间缩小范围，或搜索内网 IP 片段快速定位
-
-📋 常用 Windows 安全事件 ID 速查
-旧版 ID (XP/2003)	新版 ID (Vista+)	描述	日志名称
--	4622	用户注销成功	Security
-528	4624	成功登录	Security
-529	4625	失败登录	Security
-680	4776	成功/失败的账户认证	Security
-624	4720	创建用户	Security
-636	4732	添加用户到启用安全性的本地组中	Security
-632	4728	添加用户到启用安全性的全局组中	Security
-2934	7030	服务创建错误	System
-2944	7040	IPSec 服务启动类型变更	System
-2949	7045	服务创建	System
-🛠️ 推荐工具与平台
-日志分析：蓝队 Windows 日志分析工具、Event Log Explorer
-
-Webshell 扫描：D盾、河马查杀
-
-进程与文件搜索：Everything、Process Explorer
-
-在线沙箱：微步在线、VirusTotal
-
-隧道代理识别：frp 配置文件检查、网络连接状态查看（netstat -ano）
-
-⚠️ 免责声明
 本笔记仅供安全学习与合法应急响应使用，严禁用于任何未授权入侵或非法活动。使用者须遵守当地法律法规，并承担所有责任。
 
-保持实战视角，每一个技巧都来自真实环境的打磨。欢迎 Star ⭐ 和贡献你的排查经验！
-
-
-1. P（Preparation，准备）：准备阶段，组建应急响应团队，准备工具和文档
-
-2. D（Detection，检测）：检测阶段，确认安全事件是否发生，收集初步信息
-
-3. C（Containment，抑制）：抑制阶段，限制事件影响范围，防止进一步扩散
-  
-4. E（Eradication，根除）：根除阶段，清除恶意代码、后门，修复漏洞
-  
-5. R（Recovery，恢复）：恢复阶段，恢复系统正常运行，验证业务完整性
-
-6. F（Follow-up，跟踪）：跟踪阶段，总结复盘，输出报告，加固防御
+> 保持实战视角，每一个技巧都来自真实环境的打磨。欢迎 Star ⭐ 和贡献你的排查经验！
